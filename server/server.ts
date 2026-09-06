@@ -8,8 +8,8 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 
-import authRoutes from "./server/auth.js";
-import apiRoutes from "./server/api.js";
+import authRoutes from "./auth.js";
+import apiRoutes from "./api.js";
 
 dotenv.config();
 
@@ -28,7 +28,7 @@ async function startServer() {
       .then(async () => {
         console.log("✅ Connected to MongoDB");
         // Seed the requested admin if not exists
-        const { User } = await import("./server/models.js");
+        const { User } = await import("./models.js");
         const adminExists = await User.findOne({ email: "chethan@gmail.com" });
         if (!adminExists) {
           const newAdmin = new User({

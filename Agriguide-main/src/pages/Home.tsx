@@ -1,41 +1,46 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
-import { Search, CloudRain, Sun, ArrowRight, Sprout, Filter } from "lucide-react";
+import { Search, CloudRain, Sun, ArrowRight, Sprout, Filter, Bell, Sparkles } from "lucide-react";
 import { useAuth } from "../AuthContext";
-
-interface Crop {
-  _id: string;
-  name: string;
-  season: string;
-  imageUrl: string;
-  howToGrow: {
-    soilType: string;
-    duration: string;
-  };
-}
+import { dataService, Advisory, Crop } from "../services/dataService";
 
 export default function Home() {
   const { user } = useAuth();
   const [crops, setCrops] = useState<Crop[]>([]);
+  const [advisories, setAdvisories] = useState<Advisory[]>([]);
   const [season, setSeason] = useState<string>("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [advisoriesLoading, setAdvisoriesLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAdvisories();
+  }, []);
 
   useEffect(() => {
     fetchCrops();
   }, [season]);
 
+  const fetchAdvisories = async () => {
+    setAdvisoriesLoading(true);
+    try {
+      const data = await dataService.getAdvisories();
+      setAdvisories(data);
+    } catch (err) {
+      console.error("Failed to load advisories:", err);
+    } finally {
+      setAdvisoriesLoading(false);
+    }
+  };
+
   const fetchCrops = async () => {
     setLoading(true);
     try {
-      const url = season ? `/api/crops?season=${season}` : "/api/crops";
-      const res = await fetch(url);
-      const data = await res.json();
-      setCrops(Array.isArray(data) ? data : []);
+      const data = await dataService.getCrops(season || undefined);
+      setCrops(data);
     } catch (err) {
-      console.error("Failed to fetch crops");
+      console.error("Failed to fetch crops", err);
       setCrops([]);
     } finally {
       setLoading(false);
@@ -55,16 +60,67 @@ export default function Home() {
   return (
     <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-10">
+        <header className="mb-8">
           <motion.h1
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="font-serif text-4xl sm:text-5xl font-bold text-earth-800 mb-2"
           >
-            Welcome, {user?.name}!
+            Welcome, {user?.name || "Farmer"}!
           </motion.h1>
-          <p className="text-earth-500 font-medium">Find the best crops for your local season and soil.</p>
+          <p className="text-earth-500 font-medium">Find the best crops for your local season, soil, and live advisories.</p>
         </header>
+
+        {/* Supabase Live Advisories Section */}
+        {advisories.length > 0 && (
+          <section className="mb-10">
+            <div className="bg-gradient-to-r from-emerald-800 to-harvest-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                      <Bell size={20} className="text-amber-300 animate-pulse" />
+                    </span>
+                    <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-wide">
+                      Real-time Field Advisories
+                    </h2>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-700/80 border border-emerald-500 text-emerald-100">
+                    <Sparkles size={13} /> Supabase Live
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {advisories.map((advisory) => (
+                    <div
+                      key={advisory.id}
+                      className="bg-white/10 hover:bg-white/15 transition-all backdrop-blur-md rounded-2xl p-4 border border-white/10"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="uppercase text-xs font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-harvest-400/30 text-amber-200 border border-amber-300/30">
+                          {advisory.crop_name || "General"}
+                        </span>
+                        {advisory.season && (
+                          <span className="text-xs text-emerald-200 font-medium capitalize">
+                            {advisory.season} Season
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="font-semibold text-white text-base mb-1">
+                        {advisory.title}
+                      </h3>
+                      {advisory.description && (
+                        <p className="text-xs text-harvest-100 leading-relaxed">
+                          {advisory.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Season Selection */}
         <section className="mb-12">
@@ -76,10 +132,11 @@ export default function Home() {
               <button
                 key={s.name}
                 onClick={() => setSeason(season === s.name ? "" : s.name)}
-                className={`flex items-center justify-between p-6 rounded-3xl border-2 transition-all group ${season === s.name
-                  ? `${s.color} border-current ring-4 ring-current/10`
-                  : "bg-white border-harvest-200 text-earth-500 hover:border-harvest-300"
-                  }`}
+                className={`flex items-center justify-between p-6 rounded-3xl border-2 transition-all group ${
+                  season === s.name
+                    ? `${s.color} border-current ring-4 ring-current/10`
+                    : "bg-white border-harvest-200 text-earth-500 hover:border-harvest-300"
+                }`}
               >
                 <div className="flex items-center gap-4">
                   <div className={`p-3 rounded-2xl ${season === s.name ? "bg-white/50" : "bg-harvest-50 group-hover:bg-harvest-100"}`}>
@@ -127,7 +184,7 @@ export default function Home() {
                 >
                   <div className="h-56 overflow-hidden relative">
                     <img
-                      src={crop.imageUrl || "https://picsum.photos/seed/farm/800/600"}
+                      src={crop.imageUrl || "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=800&q=80"}
                       alt={crop.name}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
@@ -141,12 +198,12 @@ export default function Home() {
                     <div className="flex gap-4 mb-6">
                       <div className="text-xs text-earth-500">
                         <p className="font-bold uppercase tracking-tighter opacity-50">Soil</p>
-                        <p className="font-semibold">{crop.howToGrow.soilType}</p>
+                        <p className="font-semibold">{crop.howToGrow?.soilType || "Fertile Loam"}</p>
                       </div>
                       <div className="h-8 w-px bg-harvest-100" />
                       <div className="text-xs text-earth-500">
                         <p className="font-bold uppercase tracking-tighter opacity-50">Duration</p>
-                        <p className="font-semibold">{crop.howToGrow.duration}</p>
+                        <p className="font-semibold">{crop.howToGrow?.duration || "90-120 Days"}</p>
                       </div>
                     </div>
                     <Link
@@ -167,35 +224,6 @@ export default function Home() {
           )}
         </section>
       </div>
-    </div>
-  );
-}
-export default function Home() {
-  const [advisories, setAdvisories] = useState<any[]>([]);
-
-  useEffect(() => {
-    async function loadData() {
-      // Fetch rows from your 'advisories' table
-      const { data, error } = await supabase.from('advisories').select('*');
-
-      if (error) {
-        console.error('Error fetching data:', error.message);
-      } else if (data) {
-        setAdvisories(data);
-      }
-    }
-
-    loadData();
-  }, []);
-
-  return (
-    <div>
-      <h1>Agriguide Home</h1>
-      <ul>
-        {advisories.map((item) => (
-          <li key={item.id}>{item.crop_name}: {item.title}</li>
-        ))}
-      </ul>
     </div>
   );
 }
