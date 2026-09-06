@@ -3,12 +3,20 @@ import { MessageSquare, Send, X, Bot, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 interface Message {
   role: "user" | "bot";
   text: string;
 }
+
+const getGeminiApiKey = (): string => {
+  if (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_GEMINI_API_KEY) {
+    return (import.meta as any).env.VITE_GEMINI_API_KEY;
+  }
+  if (typeof process !== "undefined" && process.env?.GEMINI_API_KEY) {
+    return process.env.GEMINI_API_KEY;
+  }
+  return "";
+};
 
 export const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,7 +43,32 @@ export const Chatbot = () => {
     setMessages(prev => [...prev, { role: "user", text: userMessage }]);
     setIsTyping(true);
 
+    const apiKey = getGeminiApiKey();
+
+    if (!apiKey) {
+      // Smart agricultural fallback assistant
+      setTimeout(() => {
+        const lower = userMessage.toLowerCase();
+        let reply = "Hello farmer! I'm here to help you with crop advice, weather seasons, fertilizers, and government schemes. For direct AI queries, set your GEMINI_API_KEY.";
+        if (lower.includes("rice") || lower.includes("paddy")) {
+          reply = "🌾 Rice (Paddy) requires clayey loam soil and standing water of 2-5 cm during tillering. Watch out for Blast disease and treat with Tricyclazole 75% WP.";
+        } else if (lower.includes("wheat")) {
+          reply = "🌾 Wheat thrives in well-drained loam soil during winter (15°C - 25°C). Ensure critical irrigation at crown root initiation (~21 days).";
+        } else if (lower.includes("scheme") || lower.includes("pm-kisan") || lower.includes("subsidy")) {
+          reply = "🏛️ Key schemes include PM-Kisan Samman Nidhi (Rs 6,000/year) and Soil Health Card Scheme. Check our Schemes section for full details and application links!";
+        } else if (lower.includes("fertilizer") || lower.includes("npk")) {
+          reply = "🌱 Balanced fertilization is key! For Paddy, use NPK 120:60:60 kg/ha. For Wheat, use NPK 120:60:40 kg/ha with micronutrient zinc.";
+        } else if (lower.includes("irrigation") || lower.includes("water")) {
+          reply = "💧 Irrigation tip: Avoid water stress during flowering and grain-filling stages. For row crops like Cotton and Tomato, drip irrigation saves up to 40% water.";
+        }
+        setMessages(prev => [...prev, { role: "bot", text: reply }]);
+        setIsTyping(false);
+      }, 500);
+      return;
+    }
+
     try {
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: userMessage,
@@ -50,7 +83,8 @@ export const Chatbot = () => {
       const botResponse = response.text || "I'm sorry, I couldn't process that. Please try again.";
       setMessages(prev => [...prev, { role: "bot", text: botResponse }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: "bot", text: "Error connecting to AI. Please check your internet or API key." }]);
+      console.warn("AI generation warning:", error);
+      setMessages(prev => [...prev, { role: "bot", text: "Error connecting to AI. Please check your internet connection or API key." }]);
     } finally {
       setIsTyping(false);
     }

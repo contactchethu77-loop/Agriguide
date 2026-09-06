@@ -14,8 +14,8 @@ const ProtectedRoute = ({ children, adminOnly = false }: { children: React.React
   const { user, loading } = useAuth();
   
   if (loading) return null;
-  if (!user) return <Navigate to="/login" />;
-  if (adminOnly && user.role !== "admin") return <Navigate to="/" />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (adminOnly && user.role !== "admin") return <Navigate to="/" replace />;
   
   return <>{children}</>;
 };
@@ -27,20 +27,10 @@ export default function App() {
         <div className="relative min-h-screen">
           <Navbar />
           <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/crop/:id" element={<CropDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/crop/:id" element={
-              <ProtectedRoute>
-                <CropDetail />
-              </ProtectedRoute>
-            } />
             
             <Route path="/admin" element={
               <ProtectedRoute adminOnly>
@@ -48,7 +38,7 @@ export default function App() {
               </ProtectedRoute>
             } />
             
-            <Route path="*" element={<Navigate to="/" />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <Chatbot />
         </div>
